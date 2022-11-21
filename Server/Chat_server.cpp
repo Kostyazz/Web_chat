@@ -7,5 +7,6 @@ int main()
 	Server server;
 	server.initialize();
 	server.work();
-	
+
+	server.finish();
 }

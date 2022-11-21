@@ -26,9 +26,9 @@ private:
 	int connection_status;
 	char message[MESSAGE_LENGTH];
 	
+	const string channel = "#all";
 	unordered_map<string, string> users;
 	vector<Message*> messages;
-	const string channel = "#all";
 public:
 	void initialize();
 	void work();

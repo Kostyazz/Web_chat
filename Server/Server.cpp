@@ -82,37 +82,97 @@ void Server::work() {
 	if(connection == -1)  {
 		throw runtime_error("ERROR: Server is unable to accept the data from client!");
 	}	
-	
+	string msg;
+	string command;
+	string arg;
+	string to = "";
+	string text = "";
+	string currentLogin;
+	bool logout = false;
 	// Communication Establishment
-	while(1){
+	while(! logout){
 		bzero(message, MESSAGE_LENGTH);
 		read(connection, message, sizeof(message));
 		cout << "Data received from client: " <<  message << endl;
 		if (strncmp("/logout", message, 7) == 0) {
 			cout << "Client Exited." << endl;
 			cout << "Server is Exiting..!" << endl;
-			break;
-		}
-		if (strncmp("/login", message, 6) == 0) {
-			string msg = message;
+			strcpy(message, "-1");
+			logout = true;
+		} else if (strncmp("/login", message, 6) == 0) {
+			msg = message;
+			size_t space1 = msg.find(' ');
+			size_t space2 = msg.find(' ', space1 + 1);
+			command = msg.substr(0, space1);
+			string login = msg.substr(space1 + 1, space2 - space1 - 1);
+			string password = msg.substr(space2 + 1, msg.size());
+			
+			bzero(message, MESSAGE_LENGTH);
+			if (users[login] == password) {
+				strcpy(message, "0");
+				currentLogin = login;
+			} else {
+				strcpy(message, "1");
+			}
+		} else if (strncmp("/signup", message, 7) == 0) {
+			msg = message;
 			size_t space1 = msg.find(' ');
 			size_t space2 = msg.find(' ', space1 + 1);
 			string command = msg.substr(0, space1);
 			string login = msg.substr(space1 + 1, space2 - space1 - 1);
 			string password = msg.substr(space2 + 1, msg.size());
 			
-			
 			bzero(message, MESSAGE_LENGTH);
-			if (users[login] == password) {
-				strcpy(message, "0");
-			} else {
-				strcpy(message, "1");
+			for (auto user : users) {
+				if (user.first == login) {
+					strcpy(message, "2");
+				} else {
+					strcpy(message, "0");
+					currentLogin = login;
+				}
 			}
+			users[login] = password;
+			try {
+				ofstream loginFile;
+				loginFile.open("Login.txt", ios::app);
+				if (! loginFile.is_open()) {
+					throw runtime_error("ERROR: Login file not found");
+				}
+				loginFile << "\r\n" << login << " " << password;
+				
+			}
+			catch (exception ex) {
+				cerr << ex.what() << endl;
+				exit(1);
+			}
+		} else if (strncmp("/dm", message, 3) == 0) {
+			msg = message;
+			size_t space1 = msg.find(' ');
+			size_t space2 = msg.find(' ', space1 + 1);
+			command = msg.substr(0, space1);
+			arg = msg.substr(space1 + 1, space2 - space1 - 1);
+			text = msg.substr(space2 + 1, msg.size());
+			to.clear();
+			for (auto user : users) {
+				if (user.first == arg) {
+					to = arg;
+					break;
+				}
+			}
+			if (to.empty()) {
+				strcpy(message, "1");
+			} else {
+				strcpy(message, "0");
+				messages.emplace_back(new Message(currentLogin, to, text));
+			}
+		} else {
+			strcpy(message, "0");
+			messages.emplace_back(new Message(currentLogin, to, text));
 		}
 		ssize_t bytes = write(connection, message, sizeof(message));
 		// Если передали >= 0  байт, значит пересылка прошла успешно
 		if(bytes >= 0)  {
-		   cout << "Data successfully sent to the client!" << message << endl;
+		   //cout << "Data successfully sent to the client: " << message << endl;
 		}
 	}
 }
@@ -120,4 +180,5 @@ void Server::work() {
 void Server::finish() {
 	// закрываем сокет, завершаем соединение
 	close(socket_file_descriptor);
+	
 }

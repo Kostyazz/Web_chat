@@ -13,19 +13,23 @@ using namespace std;
  
 
 class Client {
+private:
 	int socket_file_descriptor, connection;
 	struct sockaddr_in serveraddress, client;
 	char message[MESSAGE_LENGTH];
-private:
+	
 	string currentLogin = "";
+	const string channel = "#all";
 	
 	
 public:
 	void initialize();
 	void work();
 	void loginMenu();
+	void chatMenu();
 	string talk_to_server(string& msg);
 	int login();
 	int signUp();
 	void finish();
+	void logout();
 };

@@ -63,7 +63,39 @@ void Client::loginMenu()
 		}
 	} while (loginResult);
 	cout << "Welcome, " << currentLogin << endl;
-	//chatMenu();
+}
+void Client::chatMenu()
+{
+	//showChat();
+	cout << "Enter a message to send it to all. Enter '/dm <username> <message>' to send direct message to another user. Enter '/logout' to logout" << endl;
+	cin.ignore();
+	string msg;
+	int result;
+	while (true) {
+		getline(cin, msg);
+		result = stoi(talk_to_server(msg));
+		if (result == 1) {
+			cout << "target user not found" << endl;
+		}
+		if (result = -1) {
+			logout();
+			break;
+		}
+	}
+}
+/*
+void Client::showChat()
+{
+	for (auto msg : messages) {
+		if (msg->getFrom() == currentLogin || msg->getTo() == currentLogin || msg->getTo() == channel) {
+			cout << msg->getFrom() << " to " << msg->getTo() << ": " << msg->getText() << endl;
+		}
+	}
+}*/
+
+void Client::logout()
+{
+	currentLogin.clear();
 }
 
 int Client::login()
@@ -78,12 +110,40 @@ int Client::login()
 	int result = stoi(talk_to_server(msg));
 	if (result == 0) {
 		currentLogin = login;
+	} else {	
+		cout << "Pair login-password not found" << endl;
 	}
 	return result;
 }
 
 int Client::signUp() {
 	
+	string login;
+	string password;
+	cout << "Please enter your login. Only digits and latin symbols allowed: ";
+	cin >> login;
+	for (char c : login) {
+		if ((c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9')) {
+			cout << "Only digits and latin symbols allowed" << endl;
+			return 2;
+		}
+	}
+	cout << "Please enter your password. Space symbol not allowed: ";
+	cin >> password;
+	for (char c : login) {
+		if (c == ' ') {
+			cout << "Space symbol not allowed" << endl;
+			return 2;
+		}
+	}
+	string msg = "/signup " + login + " " + password;
+	int result = stoi(talk_to_server(msg));
+	if (result == 0) {
+		currentLogin = login;
+	} else {
+		cout << "This login is taken" << endl;		
+	}
+	return result;
 }
 
 void Client::finish() {
