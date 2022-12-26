@@ -10,14 +10,18 @@
 #include "Message.h"
 #include <arpa/inet.h>
 #include<netinet/in.h>
+#include <mysql/mysql.h>
  
 using namespace std;
  
 #define MESSAGE_LENGTH 1024 // Максимальный размер буфера для данных
-#define PORT 50100 // Будем использовать этот номер порта
+#define PORT 50101 // Будем использовать этот номер порта
 
 class Server {
 private:
+	MYSQL mysql; // Дескриптор соединения c MySql
+	MYSQL_RES* res;
+	MYSQL_ROW row;
 	struct sockaddr_in serveraddress, client;
 	socklen_t length;
 	int socket_file_descriptor;
@@ -27,8 +31,6 @@ private:
 	char message[MESSAGE_LENGTH];
 	
 	const string channel = "#all";
-	unordered_map<string, string> users;
-	vector<Message*> messages;
 public:
 	void initialize();
 	void work();

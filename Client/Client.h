@@ -8,7 +8,7 @@
 
 using namespace std;
 #define MESSAGE_LENGTH 1024 // Максимальный размер буфера для данных
-#define PORT 50100 // Будем использовать этот номер порта
+#define PORT 50101 // Будем использовать этот номер порта
 #define IP_ADDRESS "127.0.0.1"
  
 

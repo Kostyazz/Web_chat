@@ -77,7 +77,7 @@ void Client::chatMenu()
 		if (result == 1) {
 			cout << "target user not found" << endl;
 		}
-		if (result = -1) {
+		if (result == -1) {
 			logout();
 			break;
 		}

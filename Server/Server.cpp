@@ -1,38 +1,28 @@
 #include "Server.h"
-#include <fstream>
 #include "exception"
+#include <mysql/mysql.h>
 
 using namespace std;
 
 void Server::initialize() {
-	//fill users array with login credentials from "Login.txt"
-	//separator is ' '
-	try {
-		ifstream loginFile;
-		loginFile.open("Login.txt");
-		if (! loginFile.is_open()) {
-			throw runtime_error("ERROR: Login file not found");
-		}
-		string login;
-		string password;
-		while (loginFile) {
-			loginFile >> login >> password;
-			loginFile.ignore();
-			for (char c : login) {
-				if ((c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9')) {
-					throw runtime_error("ERROR: bad credentials in the file");
-				}
-			}
-			if (password.empty()) {
-				throw runtime_error("ERROR: bad credentials in the file");
-			}
-			users[login] = password;
-		}
+	mysql_init(&mysql);
+ 
+	if (&mysql == NULL) 	{
+		// Если дескриптор не получен — выводим сообщение об ошибке
+		cout << "Error: can't create MySQL-descriptor" << endl;
 	}
-	catch (runtime_error& ex) {
-		cerr << ex.what() << endl;
-		exit(4);
+ 
+	// Подключаемся к серверу
+	if (!mysql_real_connect(&mysql, "localhost", "root", "root", "chatdb", 0, NULL, 0)) {
+		// Если нет возможности установить соединение с БД выводим сообщение об ошибке
+		cout << "Error: can't connect to database " << mysql_error(&mysql) << endl;
 	}
+	else {
+		// Если соединение успешно установлено выводим фразу — "Success!"
+		cout << "Success!" << endl;
+	}
+ 
+	mysql_set_character_set(&mysql, "utf8");
 	
 	// Создадим сокет
 	try {
@@ -91,6 +81,8 @@ void Server::work() {
 	bool logout = false;
 	// Communication Establishment
 	while(! logout){
+		to = "";
+		text = "";
 		bzero(message, MESSAGE_LENGTH);
 		read(connection, message, sizeof(message));
 		cout << "Data received from client: " <<  message << endl;
@@ -107,8 +99,17 @@ void Server::work() {
 			string login = msg.substr(space1 + 1, space2 - space1 - 1);
 			string password = msg.substr(space2 + 1, msg.size());
 			
+			mysql_query(&mysql, string("SELECT 1 FROM users WHERE login = '" + login + "' AND password = '" + password + "'").c_str());
+			
+			bool login_pass_in_db = false;
+			if (res = mysql_store_result(&mysql)) {
+				login_pass_in_db = mysql_num_rows(res);
+			}
+			else
+				cout << "Ошибка MySql номер " << mysql_error(&mysql);
+			
 			bzero(message, MESSAGE_LENGTH);
-			if (users[login] == password) {
+			if (login_pass_in_db) {
 				strcpy(message, "0");
 				currentLogin = login;
 			} else {
@@ -123,28 +124,22 @@ void Server::work() {
 			string password = msg.substr(space2 + 1, msg.size());
 			
 			bzero(message, MESSAGE_LENGTH);
-			for (auto user : users) {
-				if (user.first == login) {
-					strcpy(message, "2");
-				} else {
-					strcpy(message, "0");
-					currentLogin = login;
-				}
+			mysql_query(&mysql, ("SELECT 1 FROM users WHERE login = '" + login + "'").c_str());
+			
+			bool login_in_db = false;
+			if (res = mysql_store_result(&mysql)) {
+				login_in_db = mysql_num_rows(res);
 			}
-			users[login] = password;
-			try {
-				ofstream loginFile;
-				loginFile.open("Login.txt", ios::app);
-				if (! loginFile.is_open()) {
-					throw runtime_error("ERROR: Login file not found");
-				}
-				loginFile << "\r\n" << login << " " << password;
-				
+			else
+				cout << "Ошибка MySql номер " << mysql_error(&mysql);
+			
+			if (login_in_db) {
+				strcpy(message, "2");
+			} else {
+				strcpy(message, "0");
+				mysql_query(&mysql, ("INSERT INTO users VALUES('" + login + "', '" + password + "')").c_str());
 			}
-			catch (exception ex) {
-				cerr << ex.what() << endl;
-				exit(1);
-			}
+			
 		} else if (strncmp("/dm", message, 3) == 0) {
 			msg = message;
 			size_t space1 = msg.find(' ');
@@ -153,27 +148,28 @@ void Server::work() {
 			arg = msg.substr(space1 + 1, space2 - space1 - 1);
 			text = msg.substr(space2 + 1, msg.size());
 			to.clear();
-			for (auto user : users) {
-				if (user.first == arg) {
-					to = arg;
-					break;
-				}
+			
+			mysql_query(&mysql, ("SELECT 1 FROM users WHERE login = '" + arg + "'").c_str());
+			bool login_in_db = false;
+			if (res = mysql_store_result(&mysql)) {
+				login_in_db = mysql_num_rows(res);
 			}
-			if (to.empty()) {
+			else
+				cout << "Ошибка MySql номер " << mysql_error(&mysql);
+			
+			if (! login_in_db) {
 				strcpy(message, "1");
 			} else {
+				to = arg;
+				mysql_query(&mysql, ("INSERT INTO messages (sender, receiver, text) VALUES('" + currentLogin + "', '" + to + "', '" + text + "')").c_str());
 				strcpy(message, "0");
-				messages.emplace_back(new Message(currentLogin, to, text));
 			}
 		} else {
+			text = message;
+			mysql_query(&mysql, ("INSERT INTO messages (sender, receiver, text) VALUES('" + currentLogin + "', '" + channel + "', '" + text + "')").c_str());
 			strcpy(message, "0");
-			messages.emplace_back(new Message(currentLogin, to, text));
 		}
 		ssize_t bytes = write(connection, message, sizeof(message));
-		// Если передали >= 0  байт, значит пересылка прошла успешно
-		if(bytes >= 0)  {
-		   //cout << "Data successfully sent to the client: " << message << endl;
-		}
 	}
 }
 
